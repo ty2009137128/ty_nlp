@@ -1,0 +1,111 @@
+# -*- encoding: utf-8 -*-
+import logging
+
+from bosonnlp import BosonNLP
+from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+import mysql_api
+## 这是使用 BosNLP ,具体文档见: http://docs.bosonnlp.com/single.html
+##
+import sys
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+logging.captureWarnings(True)
+
+
+def get_nlp():
+    nlp = BosonNLP('njmEruuW.26793.yNAZkwmOAJui')
+    return nlp
+
+
+def get_sentiment(content):
+    nlp = get_nlp()
+    return nlp.sentiment(content)  # 情感分析
+
+
+def del_html(content):  # 去除html标签
+    dr = re.compile(r'<[^>]+>', re.S)
+    re_content = dr.sub('', content)
+    return re_content
+
+
+def get_extract_keywords(content):
+    nlp = get_nlp()
+    result = nlp.extract_keywords(content, 10, False)  # 关键词提取
+    for weight, word in result:
+        print weight
+        print word
+    return result
+
+
+# 命名实体识别
+def get_ner(content):
+    nlp = get_nlp()
+    result = nlp.ner(content)[0]
+    words = result['word']
+    entities = result['entity']
+    for entity in entities:
+        s = ''.join(words[entity[0]:entity[1]])
+        print s
+        print(s, entity[2])
+
+
+# 分词
+def get_tag(content):
+    nlp = get_nlp()
+    result = nlp.tag(content)
+    # 完整的参数调用格式如下：
+    # result = nlp.tag(s, space_mode=0, oov_level=3, t2s=0, special_char_conv=0)
+    # 修改space_mode选项为1，如下：
+    # result = nlp.tag(s, space_mode=1, oov_level=3, t2s=0, special_char_conv=0)
+    # 修改oov_level选项为1，如下：
+    # result = nlp.tag(s, space_mode=0, oov_level=1, t2s=0, special_char_conv=0)
+    # 修改t2s选项为1，如下：
+    # result = nlp.tag(s, space_mode=0, oov_level=3, t2s=1, special_char_conv=0)
+    # 修改特殊字符转换选项为1,如下：
+    # result = nlp.tag(s, space_mode=0, oov_level=3, t2s=0, special_char_conv=1)
+    for d in result:
+        print(' '.join(['%s/%s' % it for it in zip(d['word'], d['tag'])]))
+    return result
+
+
+# 保存数据到本地
+def save2file(strs, file_path):
+    fileObject = open(file_path, 'w')
+    for str in strs:
+        fileObject.write(str)
+        fileObject.write('\n')
+    fileObject.close()
+
+def list2str(datas,seg):
+
+    if datas:
+        return seg.join(datas)
+    else:
+        return ''
+
+
+##  主方法
+if __name__ == '__main__':
+
+    datas = mysql_api.query()
+
+    result_list = []
+    print datas.__class__
+    for data in datas:
+        ques_id = data[1]
+        ans_id = data[2]
+        ans_content = data[12]
+        content = del_html(ans_content)
+        tag_result = get_tag(content)
+        str = list2str(tag_result[0]['word'], '|')
+       # sentiment_result = get_sentiment(content)
+       # emotion_str=str(sentiment_result[0][0]) + '☂' + str(sentiment_result[0][1])
+        print str
+        result_list.append(ans_content)
+    #
+    #    print content
+    #    get_tag(content)
+    #save2file(result_list, 'test.txt')
